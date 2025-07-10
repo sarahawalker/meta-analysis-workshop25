@@ -1,0 +1,187 @@
+---
+title: "Introduction to Meta-Analysis Workshop"
+author: "Sarah A. Walker"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: journal
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+# Introduction
+
+Welcome to the 2025 ISSID summer school workshop on beginner meta-analyses! This document is the digital handout for our workshop, and we will walk through a complete worked example to answer the following research question:
+
+**What is the correlation between conscientiousness and academic achievement?**
+
+We will perform an overall meta-analysis, investigate reasons for differences between studies (heterogeneity) using subgroup analysis and meta-regression, and check for potential publication bias. Please keep in mind that this is a completely fabricated data set and as such is perfect for illustration but is terrible for any real world accuracy - real data is messy, complex and so if this doesn't work perfectly when you come to doing it IRL, please feel free to get in touch (sarah.a.walker@durham.ac.uk)
+
+## Workshop Slides
+
+Slides can be viewed by following this link: <a href="https://www.canva.com/design/DAGsyR48FpM/eeBxEhVT9uglURTe0YeovA/view?utm_content=DAGsyR48FpM&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=h953158ce76" target="_blank">DOWNLOAD</a>
+
+---
+
+# 1. Setup: Loading Packages
+
+First, we need to load the R packages required for our analysis. We will use `meta` and `metafor`.
+
+This code chunk will also install the packages if you don't have them already.
+
+```{r, eval=TRUE}
+# Install packages if they are not already installed
+if (!require("meta")) install.packages("meta")
+if (!require("metafor")) install.packages("metafor")
+
+# Load the packages for use in this session
+library(meta)
+library(metafor)
+```
+
+---
+
+# 2. Loading the Data
+
+Next, we will load our dataset. A reminder that this is a fictional dataset created for this workshop, containing extracted data from 20 studies.
+
+<br>
+**<a href="conscientiousness_data.csv" download>Click here to download the dataset (conscientiousness_data.csv)</a>**
+<br>
+
+**Important:** For the code below to work, the `conscientiousness_data.csv` file must be saved in the same folder as this R Markdown file.
+
+```{r}
+# Read the data from the CSV file
+dat <- read.csv("conscientiousness_data.csv")
+
+# Display the first 6 rows to inspect the data
+knitr::kable(head(dat), caption = "First 6 Studies in the Dataset")
+```
+
+---
+
+# 3. The Overall Meta-Analysis
+
+Now we can perform our main meta-analysis using the `metacor()` function. We specify `random.x = TRUE` to use a random-effects model.
+
+```{r}
+# Run the random-effects meta-analysis
+m.gen <- metacor(cor = r,
+                 n = n,
+                 studlab = Author,
+                 data = dat,
+                 sm = "COR",
+                 method.tau = "REML",
+                 random.x = TRUE,
+                 method.random.ci = TRUE)
+
+# Print the standard results to the console
+print(m.gen, digits = 2)
+```
+
+---
+
+# 4. Visualisation: The Forest Plot
+
+The forest plot is the most important visualisation in meta-analysis.
+
+```{r, fig.width=8, fig.height=6}
+# Generate the forest plot
+forest(m.gen,
+       sortvar = Year,
+       leftcols = c("studlab", "Year", "n"),
+       leftlabs = c("Author", "Year", "Sample Size"),
+       xlab = "Correlation Coefficient (r)",
+       smlab = "Summary Effect",
+       text.random = "Overall (Random Effects)",
+       col.square = "blue",
+       col.diamond = "red")
+```
+
+---
+
+# 5. Investigating Heterogeneity: Subgroup Analysis
+
+Our overall analysis showed high heterogeneity. Let's see if `StudentType` can explain it.
+
+```{r}
+# Run the subgroup analysis
+m.subgroup <- update(m.gen, subgroup = StudentType)
+
+# Print the results
+print(m.subgroup, digits = 2)
+
+# Generate a forest plot for the subgroup analysis
+forest(m.subgroup)
+```
+
+---
+
+# 6. Investigating Heterogeneity: Meta-Regression
+
+Now we test our continuous moderators using `metafor`.
+
+```{r}
+# Calculate effect sizes using escalc() from metafor
+dat_es <- escalc(measure = "ZCOR", ri = r, ni = n, data = dat)
+```
+
+### Meta-Regression with `AvgAge` (A Significant Predictor)
+
+Let's test our meaningful moderator: the average age of participants.
+
+```{r}
+# Run the meta-regression model
+m.reg_age <- rma(yi, vi, mods = ~ AvgAge, data = dat_es)
+
+# Print the standard results
+print(m.reg_age)
+
+# Create a bubble plot to visualise the results
+regplot(m.reg_age,
+        mod = "AvgAge",
+        xlab = "Average Age of Participants",
+        ylab = "Effect Size (Fisher's z)",
+        las = 1,
+        bty = "l",
+        pch = 19)
+```
+
+---
+
+# 7. Checking for Publication Bias
+
+Finally, we check for publication bias visually with a funnel plot and statistically with Egger's test.
+
+```{r}
+# Create the funnel plot
+funnel(m.gen,
+       xlab = "Correlation Coefficient (r)")
+```{r}
+# Run Egger's test for funnel plot asymmetry
+metabias(m.gen, method.bias = "Egger")
+```
+---
+
+# Further Learning & Resources
+
+### Key Textbooks
+
+* **"Introduction to Meta-Analysis"** by Borenstein, Hedges, Higgins, & Rothstein. *(This is considered the bible of meta-analysis and is extremely readable).*
+* **"Doing Meta-Analysis with R: A Hands-On Guide"** by Harrer, Cuijpers, Furukawa, & Ebert. *(An outstanding, practical guide with all the code you need).* * **[https://bookdown.org/MathiasHarrer/Doing_Meta_Analysis_in_R/]**
+
+### Online Resources
+
+* **[The Cochrane Handbook for Systematic Reviews of Interventions](https://training.cochrane.org/handbook)**: The gold standard for conducting systematic reviews.
+* **[The metafor Package Website](https://www.metafor-project.org/)**: The official site for the `metafor` R package has excellent documentation and examples.
+
+## Workshop Slides
+
+Slides can be viewed by following this link: <a href="https://www.canva.com/design/DAGsyR48FpM/eeBxEhVT9uglURTe0YeovA/view?utm_content=DAGsyR48FpM&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=h953158ce76" target="_blank">DOWNLOAD</a>
+
+
